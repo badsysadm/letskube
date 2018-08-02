@@ -1,7 +1,5 @@
 # Let's Kube
 
-![Let's Kube](image.png)
-
 **Work in progress**
 
 Ansible playbooks for deploying a Kubernetes cluster on virtual machines with CentOS 7.
