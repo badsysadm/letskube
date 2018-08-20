@@ -138,7 +138,7 @@ EOF
 	echo "Make EXT4 file system"
 	mkfs.ext4 /dev/drbd${ITERATION}
 	echo "Mount /dev/drbd${ITERATION} device to /data/${LV_NAME}${ITERATION}/"
-	mount /dev/${DRBD_VOL}${ITERATION} /data/${LV_NAME}${ITERATION}/
+	mount /dev/drbd${ITERATION} /data/${LV_NAME}${ITERATION}/
   fi
   unset ITERATION
   unset SIZE
