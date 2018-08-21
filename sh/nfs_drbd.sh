@@ -1,4 +1,4 @@
-IS_PRIMARY='yes'
+IS_PRIMARY='no'
 LV_NAME='NFS'
 LV_GROUP='vg0'
 DRBD_NAME='drbd_'${LV_NAME}
@@ -6,7 +6,7 @@ DRBD_FPORT='17220'
 NFS_HOST01='cs44762'
 NFS_HOST02='cs44753'
 VLAN='10'
-ARRAY_VOL=('27|10M' '28|10M')
+ARRAY_VOL=('51|2000G' '52|2000G' '53|2000G' '54|2000G' '55|2000G' '56|2000G' '11|2000G' '01|1000G')
 
 echo "Start deploy on host (${NFS_HOST01}; ${NFS_HOST02})"
 echo "Update by apt-get"
@@ -93,9 +93,9 @@ for cvol in "${ARRAY_VOL[@]}"; do
   DRBD_PORT=$((${DRBD_PORT}+1))
   echo "|__DRBD_PORT is ${DRBD_PORT}"
 
-  echo "cs44762  IPaddr::192.168.80.197/24/${NET_CONN} drbddisk::${DRBD_NAME}${ITERATION} Filesystem::/dev/${LV_GROUP}/${LV_NAME}${ITERATION}::/data/${LV_NAME}${ITERATION}/::ext4 nfs-kernel-server" >> /etc/heartbeat/haresources
+  echo "cs44762  IPaddr::192.168.80.197/24/vlan80 drbddisk::${DRBD_NAME}${ITERATION} Filesystem::/dev/${DRBD_NAME}${ITERATION}::/data/${LV_NAME}${ITERATION}/::ext4 nfs-kernel-server" >> /etc/heartbeat/haresources
   echo "|__Added heartbeat endpoint"
-  echo "|___cs44762  IPaddr::192.168.80.197/24/${NET_CONN} drbddisk::${DRBD_NAME}${ITERATION} Filesystem::/dev/${LV_GROUP}/${LV_NAME}${ITERATION}::/data/${LV_NAME}${ITERATION}/::ext4 nfs-kernel-server"
+  echo "|___cs44762  IPaddr::192.168.80.197/24/vlan80 drbddisk::${DRBD_NAME}${ITERATION} Filesystem::/dev/${DRBD_NAME}${ITERATION}::/data/${LV_NAME}${ITERATION}/::ext4 nfs-kernel-server"
 
   echo "|__Configuring drbd resourse file ${DRBD_NAME}${ITERATION}.res"
   cat <<EOF > /etc/drbd.d/${DRBD_NAME}${ITERATION}.res
