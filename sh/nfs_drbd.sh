@@ -1,13 +1,44 @@
 IS_PRIMARY='no'
-LV_NAME='NFS'
+ARRAY_VOL=('NFS|100G')
 LV_GROUP='vg0'
-DRBD_NAME='drbd_'${LV_NAME}
-DRBD_FPORT='17220'
-NFS_HOST01='cs44762'
-NFS_HOST02='cs44753'
-VLAN='10'
-ARRAY_VOL=('51|2000G' '52|2000G' '53|2000G' '54|2000G' '55|2000G' '56|2000G' '11|2000G' '01|1000G')
 
+if [ ${IS_PRIMARY} == 'true' ] || [ ${IS_PRIMARY} == 'yes' ] || [ ${IS_PRIMARY} == '1' ]; then
+  NFS_HOST01='cs44762'
+  NFS_HOST02='cs44753'
+  VLAN='10'
+  WVLAN='80'
+  IP1='199'
+  IP2='198'
+  VIP='197'
+  echo 'Master node: '${NFS_HOST01}' on 192.168.'${WVLAN}.${IP1}' with virtual ip:'${VIP}
+else
+  NFS_HOST01='cs44753'
+  NFS_HOST02='cs44762'
+  VLAN='10'
+  WVLAN='80'
+  IP1='198'
+  IP2='199'
+  VIP='197'
+  echo 'Slave node: '${NFS_HOST01}' on 192.168.'${WVLAN}.${IP1}' with virtual ip:'${VIP}
+fi
+
+arr_check=(192.168.$WVLAN.$IP1 192.168.$WVLAN.$IP2 192.168.$WVLAN.$VIP)
+for HOST in "${arr_check[@]}"; do
+  ping -c1 $HOST 1>/dev/null 2>/dev/null
+  SUCCESS=$?
+
+  if [ $SUCCESS -eq 0 ]
+  then
+    echo "$HOST already exist"
+    echo "abort"
+    exit 1
+  else
+    echo "$HOST didn't reply"
+    echo "Accept "$HOST
+  fi
+
+done
+  
 echo "Start deploy on host (${NFS_HOST01}; ${NFS_HOST02})"
 echo "Update by apt-get"
 apt-get update > /dev/null && apt-get upgrade -y > /dev/null
@@ -30,8 +61,8 @@ cat > /etc/hosts <<EOF
 ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 
-192.168.10.199  ${NFS_HOST01}
-192.168.10.198  ${NFS_HOST02}
+192.168.${VLAN}.${IP1}  ${NFS_HOST01}
+192.168.${VLAN}.${IP2}  ${NFS_HOST02}
 EOF
 
 ###DRBD
@@ -76,27 +107,34 @@ echo "Configuring heartbeat authkeys config file"
 
 cat > /etc/heartbeat/authkeys << EOF
 auth 3
-3 md5 somerandomstring1
+3 md5 iMbbqSkMf4y2dctD1xlnweYO
 EOF
-
 chmod 600 /etc/heartbeat/authkeys
 
-echo "Configuring drbd ports started from ${DRBD_FPORT}"
-DRBD_PORT=$((${DRBD_FPORT}+1))
+ITERATION=1
 for cvol in "${ARRAY_VOL[@]}"; do
-  ITERATION=`echo $cvol | sed -s 's/|.*$//g'`
+  LV_NAME=`echo $cvol | sed -s 's/|.*$//g'`
+  DRBD_NAME='drbd_'${LV_NAME}
+  CUR_I=`lvdisplay | grep 'LV Name' | awk '{print $3}' | grep 'NFS' | sed -s 's/^[A-Z a-z]*//g' | sort -nr | head -n1`
+  if [ ${ITERATION} -le ${CUR_I} ]; then
+    ITERATION=$((CUR_I + 1))
+  else
+    ITERATION=$((ITERATION + 1))
+  fi
+
   SIZE=`echo $cvol | sed -s 's/^.*|//g'`
   echo "|_Create volume ${LV_NAME}${ITERATION}"
   lvcreate -L ${SIZE} -n ${LV_NAME}${ITERATION} ${LV_GROUP}
   echo "|_Created LV volume ${LV_NAME}${ITERATION} with size ${SIZE} on ${LV_GROUP}"
 
-  DRBD_PORT=$((${DRBD_PORT}+1))
+
+  DRBD_PORT=$((ITERATION + 17200))
   echo "|__DRBD_PORT is ${DRBD_PORT}"
 
-  echo "cs44762  IPaddr::192.168.80.197/24/vlan80 drbddisk::${DRBD_NAME}${ITERATION} Filesystem::/dev/${DRBD_NAME}${ITERATION}::/data/${LV_NAME}${ITERATION}/::ext4 nfs-kernel-server" >> /etc/heartbeat/haresources
-  echo "|__Added heartbeat endpoint"
-  echo "|___cs44762  IPaddr::192.168.80.197/24/vlan80 drbddisk::${DRBD_NAME}${ITERATION} Filesystem::/dev/${DRBD_NAME}${ITERATION}::/data/${LV_NAME}${ITERATION}/::ext4 nfs-kernel-server"
-
+  echo "|__Add heartbeat endpoint"
+  echo "|___cs44762  IPaddr::192.168.${WVLAN}.${VIP}/24/vlan${WVLAN} drbddisk::${DRBD_NAME}${ITERATION} Filesystem::/dev/drbd${ITERATION}::/data/${LV_NAME}${ITERATION}/::ext4 nfs-kernel-server"
+  echo "cs44762  IPaddr::192.168.${WVLAN}.${VIP}/24/vlan${WVLAN} drbddisk::${DRBD_NAME}${ITERATION} Filesystem::/dev/drbd${ITERATION}::/data/${LV_NAME}${ITERATION}/::ext4 nfs-kernel-server" >> /etc/heartbeat/haresources
+  
   echo "|__Configuring drbd resourse file ${DRBD_NAME}${ITERATION}.res"
   cat <<EOF > /etc/drbd.d/${DRBD_NAME}${ITERATION}.res
 resource ${DRBD_NAME}${ITERATION} {
@@ -109,10 +147,10 @@ resource ${DRBD_NAME}${ITERATION} {
   net {
   }
   on ${NFS_HOST01} {
-    address 192.168.${VLAN}.199:${DRBD_PORT};
+    address 192.168.${VLAN}.${IP1}:${DRBD_PORT};
   }
   on ${NFS_HOST02} {
-    address 192.168.${VLAN}.198:${DRBD_PORT};
+    address 192.168.${VLAN}.${IP2}:${DRBD_PORT};
   }
 }
 EOF
@@ -143,3 +181,4 @@ EOF
   unset ITERATION
   unset SIZE
 done
+cat /proc/drbd
