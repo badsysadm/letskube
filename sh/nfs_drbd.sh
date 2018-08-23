@@ -1,6 +1,7 @@
-IS_PRIMARY='no'
+IS_PRIMARY='yes'
 ARRAY_VOL=('NFS|100G')
 LV_GROUP='vg0'
+VIP='197'
 
 if [ ${IS_PRIMARY} == 'true' ] || [ ${IS_PRIMARY} == 'yes' ] || [ ${IS_PRIMARY} == '1' ]; then
   NFS_HOST01='cs44762'
@@ -9,7 +10,7 @@ if [ ${IS_PRIMARY} == 'true' ] || [ ${IS_PRIMARY} == 'yes' ] || [ ${IS_PRIMARY} 
   WVLAN='80'
   IP1='199'
   IP2='198'
-  VIP='197'
+
   echo 'Master node: '${NFS_HOST01}' on 192.168.'${WVLAN}.${IP1}' with virtual ip:'${VIP}
 else
   NFS_HOST01='cs44753'
@@ -18,11 +19,10 @@ else
   WVLAN='80'
   IP1='198'
   IP2='199'
-  VIP='197'
   echo 'Slave node: '${NFS_HOST01}' on 192.168.'${WVLAN}.${IP1}' with virtual ip:'${VIP}
 fi
 
-arr_check=(192.168.$WVLAN.$IP1 192.168.$WVLAN.$IP2 192.168.$WVLAN.$VIP)
+arr_check=(192.168.$WVLAN.$VIP )
 for HOST in "${arr_check[@]}"; do
   ping -c1 $HOST 1>/dev/null 2>/dev/null
   SUCCESS=$?
@@ -36,9 +36,16 @@ for HOST in "${arr_check[@]}"; do
     echo "$HOST didn't reply"
     echo "Accept "$HOST
   fi
-
 done
-  
+
+LVSPACE=`vgs | grep ${LV_GROUP} |awk '{print $7}'`
+if [ $LVSPACE != "0" ]; then
+  echo "Free space on LVM: "${LVSPACE}
+else
+  echo "Not enouth free lvm size"
+  exit 1
+fi
+
 echo "Start deploy on host (${NFS_HOST01}; ${NFS_HOST02})"
 echo "Update by apt-get"
 apt-get update > /dev/null && apt-get upgrade -y > /dev/null
@@ -90,7 +97,6 @@ for i in "${IFACES[@]}"; do
 done
 
 echo "Configuring heartbeat ha.cf config file"
-
 cat > /etc/heartbeat/ha.cf << EOF
 logfacility     local0
 keepalive 2
@@ -104,7 +110,6 @@ EOF
 echo "|__broadast by ${WNET_CONN} 1Gb interface"
 
 echo "Configuring heartbeat authkeys config file"
-
 cat > /etc/heartbeat/authkeys << EOF
 auth 3
 3 md5 iMbbqSkMf4y2dctD1xlnweYO
@@ -116,8 +121,12 @@ for cvol in "${ARRAY_VOL[@]}"; do
   LV_NAME=`echo $cvol | sed -s 's/|.*$//g'`
   DRBD_NAME='drbd_'${LV_NAME}
   CUR_I=`lvdisplay | grep 'LV Name' | awk '{print $3}' | grep 'NFS' | sed -s 's/^[A-Z a-z]*//g' | sort -nr | head -n1`
-  if [ ${ITERATION} -le ${CUR_I} ]; then
-    ITERATION=$((CUR_I + 1))
+  if [ ! -z "$CUR_I" ]; then
+    if [ $ITERATION -le $CUR_I ]; then
+      ITERATION=$((CUR_I + 1))
+    else
+      ITERATION=$((ITERATION + 1))
+    fi
   else
     ITERATION=$((ITERATION + 1))
   fi
@@ -127,14 +136,13 @@ for cvol in "${ARRAY_VOL[@]}"; do
   lvcreate -L ${SIZE} -n ${LV_NAME}${ITERATION} ${LV_GROUP}
   echo "|_Created LV volume ${LV_NAME}${ITERATION} with size ${SIZE} on ${LV_GROUP}"
 
-
   DRBD_PORT=$((ITERATION + 17200))
   echo "|__DRBD_PORT is ${DRBD_PORT}"
 
   echo "|__Add heartbeat endpoint"
   echo "|___cs44762  IPaddr::192.168.${WVLAN}.${VIP}/24/vlan${WVLAN} drbddisk::${DRBD_NAME}${ITERATION} Filesystem::/dev/drbd${ITERATION}::/data/${LV_NAME}${ITERATION}/::ext4 nfs-kernel-server"
   echo "cs44762  IPaddr::192.168.${WVLAN}.${VIP}/24/vlan${WVLAN} drbddisk::${DRBD_NAME}${ITERATION} Filesystem::/dev/drbd${ITERATION}::/data/${LV_NAME}${ITERATION}/::ext4 nfs-kernel-server" >> /etc/heartbeat/haresources
-  
+
   echo "|__Configuring drbd resourse file ${DRBD_NAME}${ITERATION}.res"
   cat <<EOF > /etc/drbd.d/${DRBD_NAME}${ITERATION}.res
 resource ${DRBD_NAME}${ITERATION} {
