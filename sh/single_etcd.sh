@@ -45,3 +45,5 @@ EOF
 systemctl daemon-reload
 systemctl enable etcd.service
 systemctl start etcd.service
+
+echo 'alias etcdctl="etcdctl --endpoint '${PRIMARY_HOST_IP}':2379"' >> /root/.bashrc
