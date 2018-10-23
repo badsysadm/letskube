@@ -1,0 +1,118 @@
+fdisk -l | awk 'match($2, /\/dev\/sd./ ) {print substr($2, RSTART, RLENGTH)})'
+parted /dev/sda mklabel gpt mkpart P1 ext4 1Mib 8Mib
+
+parted -s /dev/sda mklabel msdos
+parted -s /dev/sda unit mib mkpart primary 1 100%
+
+#parted /dev/sda mkpart primary ext2 1Mib 200Mib -s
+apt install lvm2
+pvcreate /dev/sda1
+pvs
+vgcreate vg0 /dev/sda1
+vgs
+lvcreate -L 200M vg0 -n boot
+
+free -m | awk '/mem/ {print $2}'
+lvcreate -L 2048M vg0 -n swap
+lvcreate -l 100%FREE vg0 -n root
+mkfs.ext2 /dev/vg0/boot
+mkfs.ext4 /dev/vg0/root
+mkswap /dev/vg0/swap
+sync
+swapon /dev/vg0/swap
+
++++++++
+
+mkdir -p /mnt/debinst
+mount /dev/vg0/root /mnt/debinst
+mkdir -p /mnt/debinst/boot
+mount /dev/vg0/boot /mnt/debinst/boot
+apt install wget binutils
+wget http://ftp.debian.org/debian/pool/main/d/debootstrap/debootstrap_1.0.67+deb8u1_all.deb
+dpkg -i debootstrap_1.0.67+deb8u1_all.deb
+debootstrap --arch ARCH stretch mnt/debinst http://ftp.us.debian.org/debian
+LANG=C.UTF-8 chroot /mnt/debinst /bin/bash
+export TERM=xterm-color
+
+apt install makedev
+mount none /proc -t proc
+cd /dev
+MAKEDEV generic
+apt install lvm2
+vgmknodes
+
+cat /etc/fstab
+/dev/mapper/vg--root-root /               ext4    errors=remount-ro 0       1
+/dev/mapper/vg--root-boot /boot           ext2    defaults        0       2
+/dev/mapper/vg--root-log /var/log        ext4    defaults        0       2
+/dev/mapper/vg--root-swap none            swap    sw              0       0
+
+mount -a
+
+cat /etc/adjtime
+0.0 0 0.0
+0
+UTC
+
+#dpkg-reconfigure tzdata ### не нужно в UTC
+
+#######################
+apt install ethtool
+ip -f link -4 -o link | awk '/lo/ {next} match ($2, /[a-z0-9]+/) {print substr($2, RSTART, RLENGTH)}'
+cat /etc/network/interfaces
+
+auto lo
+iface lo inet loopback
+
+auto ens18
+allow-hotplug ens18
+iface ens18 inet dhcp
+
+
+
+cat /etc/resolv.conf
+search infra.cognita.ru
+nameserver 192.168.80.254
+nameserver 192.168.80.253
+
+cat /etc/hostname
+debian-hostname
+
+cat /etc/hosts
+127.0.0.1 localhost
+127.0.1.1 DebianHostName
+
+/etc/sysctl.conf
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+
+sysctl -p
+
+cat /etc/apt/sources.list
+deb-src http://ftp.us.debian.org/debian stretch main non-free contrib
+
+deb http://security.debian.org/ stretch/updates main
+deb-src http://security.debian.org/ stretch/updates main
+
+#####
+apt install locales
+#dpkg-reconfigure locales
+#update-locale LANG=en_HK.UTF-8
+
+sed /etc/locale.gen ............
+/usr/sbin/locale-gen
+
+################
+apt search linux-image
+apt install linux-image-amd64
+
+export DEBIAN_FRONTEND=noninteractive
+apt install grub-pc
+grub-install /dev/sda
+update-grub
+
+
+##############passwd root 
+
+apt clean
