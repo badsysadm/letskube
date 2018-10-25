@@ -59,3 +59,4 @@ locale-get
 export DEBIAN_FRONTEND=noninteractive
 apt-get install -y grub-pc
 grub-install /dev/sda
+update-grub
