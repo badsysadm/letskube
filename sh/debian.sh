@@ -45,6 +45,6 @@ mkdir -p /mnt/debootstrap/boot
 mount /dev/${VG_NAME}/boot /mnt/debootstrap/boot
 wget ${BOOTSTRAP_DEB} -O /tmp/bootstrap.deb
 dpkg -i /tmp/bootstrap.deb
-debootstrap --arch amd64 stretch /mnt/${HOSTNAME} ${BOOTSTRAP_LINK}
-cp debootstrap.sh /mnt/badsysadm/debootstrap.sh
+debootstrap --arch amd64 stretch /mnt/debootstrap ${BOOTSTRAP_LINK}
+cp debootstrap.sh /mnt/debootstrap/debootstrap.sh
 LANG=C.UTF-8 chroot /mnt/debootstrap bash debootstrap.sh ${HOSTNAME}
