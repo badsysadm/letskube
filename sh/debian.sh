@@ -13,7 +13,7 @@ umount /dev/mapper/${VG_NAME}-root
 dd if=/dev/zero of=/dev/${VG_NAME}/boot bs=1M count=1
 dd if=/dev/zero of=/dev/${VG_NAME}/root bs=1M count=1
 dd if=/dev/zero of=/dev/${VG_NAME}/swap bs=1M count=1
-rm -rfv /mnt/${HOSTNAME}
+rm -rfv /mnt/debootstrap
 swapoff -a
 
 
@@ -39,12 +39,12 @@ mkswap /dev/${VG_NAME}/swap
 sync
 swapon /dev/${VG_NAME}/swap
 
-mkdir -p /mnt/${HOSTNAME}
-mount /dev/${VG_NAME}/root /mnt/${HOSTNAME}
-mkdir -p /mnt/${HOSTNAME}/boot
-mount /dev/${VG_NAME}/boot /mnt/${HOSTNAME}/boot
+mkdir -p /mnt/debootstrap
+mount /dev/${VG_NAME}/root /mnt/debootstrap
+mkdir -p /mnt/debootstrap/boot
+mount /dev/${VG_NAME}/boot /mnt/debootstrap/boot
 wget ${BOOTSTRAP_DEB} -O /tmp/bootstrap.deb
 dpkg -i /tmp/bootstrap.deb
 debootstrap --arch amd64 stretch /mnt/${HOSTNAME} ${BOOTSTRAP_LINK}
-cp 2.sh /mnt/badsysadm/2.sh
-LANG=C.UTF-8 chroot /mnt/${HOSTNAME} bash 2.sh
+cp debootstrap.sh /mnt/badsysadm/debootstrap.sh
+LANG=C.UTF-8 chroot /mnt/debootstrap bash debootstrap.sh
