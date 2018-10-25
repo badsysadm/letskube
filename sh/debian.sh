@@ -47,4 +47,4 @@ wget ${BOOTSTRAP_DEB} -O /tmp/bootstrap.deb
 dpkg -i /tmp/bootstrap.deb
 debootstrap --arch amd64 stretch /mnt/${HOSTNAME} ${BOOTSTRAP_LINK}
 cp debootstrap.sh /mnt/badsysadm/debootstrap.sh
-LANG=C.UTF-8 chroot /mnt/debootstrap bash debootstrap.sh
+LANG=C.UTF-8 chroot /mnt/debootstrap bash debootstrap.sh ${HOSTNAME}
