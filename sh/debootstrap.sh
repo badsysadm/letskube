@@ -12,7 +12,6 @@ vgmknodes
 cat <<EOF> /etc/fstab
 /dev/mapper/${VG_NAME}-root / ext4 errors=remount-ro 0 1
 /dev/mapper/${VG_NAME}-boot /boot ext2 defaults 0 2
-/dev/mapper/${VG_NAME}-root / ext4 defaults 0 2
 /dev/mapper/${VG_NAME}-swap none swap sw 0 0
 EOF
 mount -a
