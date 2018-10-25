@@ -5,6 +5,7 @@ VG_NAME='vg0'
 BOOT_SIZE='200M'
 SWAP_SIZE=`free -m | awk 'match($1, /[Mm]em/) {print $2}'`
 DISKS=($(fdisk -l | awk 'match($2, /\/dev\/sd./ ) {print substr($2, RSTART, RLENGTH)}'))
+ROLES=(elasticsearch sshd zabbix-agent)
 
 apt update -y && apt install -y lvm2 binutils wget
 
@@ -48,3 +49,8 @@ dpkg -i /tmp/bootstrap.deb
 debootstrap --arch amd64 stretch /mnt/debootstrap ${BOOTSTRAP_LINK}
 cp debootstrap.sh /mnt/debootstrap/debootstrap.sh
 LANG=C.UTF-8 chroot /mnt/debootstrap bash debootstrap.sh ${HOSTNAME}
+
+for role in ${ROLES[@]}; do
+  cp ${role}.sh /mnt/debootstrap/${role}.sh
+  LANG=C.UTF-8 chroot /mnt/debootstrap bash ${role}.sh ${HOSTNAME}
+done
