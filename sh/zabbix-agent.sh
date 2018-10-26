@@ -1,3 +1,4 @@
+IP=`ip a | awk 'match($2, /192\.168\.[0-9]+\.[0-9]+/) { print substr( $2, RSTART, RLENGTH )}'`
 wget https://repo.zabbix.com/zabbix/4.0/debian/pool/main/z/zabbix-release/zabbix-release_4.0-2+stretch_all.deb
 dpkg -i zabbix-release_4.0-2+stretch_all.deb
 apt-get update
@@ -13,10 +14,11 @@ ServerActive=zabbix.cognita.ru
 Hostname=${HOSTNAME}
 Include=/etc/zabbix/zabbix_agentd.d/*.conf
 DebugLevel=3
-EnableRemoteCommands=1
+EnableRemoteCommands=0
 LogRemoteCommands=1
 ListenPort=10050
-ListenIP=0.0.0.0
+ListenIP=${IP}
+HostMetadata=Linux SECRET
 EOF
 
 /bin/systemctl daemon-reload
