@@ -3,7 +3,7 @@ dpkg -i zabbix-release_4.0-2+stretch_all.deb
 apt-get update
 apt-get install -y zabbix-agent
 
-HOSTNAME=`hostname`
+HOSTNAME=${1}
 cat <<EOF | tee /etc/zabbix/zabbix_agentd.conf
 PidFile=/var/run/zabbix/zabbix_agentd.pid
 LogFile=/var/log/zabbix/zabbix_agentd.log
