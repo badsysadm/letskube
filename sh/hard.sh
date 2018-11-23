@@ -1,18 +1,24 @@
-systemctl stop etcd
-systemctl stop kubelet
-systemctl stop kube-apiserver kube-controller-manager kube-scheduler
-
+ADM_OS='linux-amd64'
+ETCD_NAME='etcd'
+EXTERNAL_IP='192.168.80.209'
+INTERNAL_IP='192.168.80.209'
 KUBE_VERSION='1.11.1'
-#wget -q --show-progress --https-only --timestamping https://pkg.cfssl.org/R1.2/cfssl_linux-amd64 https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+GO_VERSION='1.10.3'
+ETCD_VERSION='3.3.5'
+KUBERNETES_PUBLIC_ADDRESS='192.168.80.209'
+HOSTNAME=`hostname`
 
-#chmod +x cfssl_linux-amd64 cfssljson_linux-amd64
-#mv cfssl_linux-amd64 /usr/local/bin/cfssl
-#mv cfssljson_linux-amd64 /usr/local/bin/cfssljson
+
+wget -q --show-progress --https-only --timestamping https://pkg.cfssl.org/R1.2/cfssl_linux-amd64 https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+
+chmod +x cfssl_linux-amd64 cfssljson_linux-amd64
+mv cfssl_linux-amd64 /usr/local/bin/cfssl
+mv cfssljson_linux-amd64 /usr/local/bin/cfssljson
 cfssl version
 
-#wget https://storage.googleapis.com/kubernetes-release/release/v${KUBE_VERSION}/bin/linux/amd64/kubectl
-#chmod +x kubectl
-#mv kubectl /usr/local/bin/
+wget https://storage.googleapis.com/kubernetes-release/release/v${KUBE_VERSION}/bin/linux/amd64/kubectl
+chmod +x kubectl
+mv kubectl /usr/local/bin/
 kubectl version --client
 ADM_WORKDIR=$PWD
 ADM_PKIDIR=$PWD'/pki/'
@@ -20,8 +26,6 @@ ADM_TMP=${ADM_PKIDIR}'*'
 mkdir -p ${ADM_PKIDIR}
 rm -rfv ${ADM_TMP}
 
-GO_VERSION='1.10.3'
-ADM_OS='linux-amd64'
 wget https://dl.google.com/go/go$GO_VERSION.$ADM_OS.tar.gz
 tar -C /usr/local -xzf go$GO_VERSION.$ADM_OS.tar.gz
 rm -rfv go1*
@@ -94,7 +98,7 @@ EOF
 cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes admin-csr.json | cfssljson -bare admin
 
 ### Kubelet Client key
-for instance in debian slave0 slave1 slave2; do
+for instance in ${HOSTNAME}; do
 cat > ${ADM_PKIDIR}/${instance}-csr.json <<EOF
 {
   "CN": "system:node:${instance}",
@@ -113,8 +117,6 @@ cat > ${ADM_PKIDIR}/${instance}-csr.json <<EOF
   ]
 }
 EOF
-EXTERNAL_IP=127.0.0.1
-INTERNAL_IP=127.0.0.1
 
 cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json \
   -hostname=${instance},${EXTERNAL_IP},${INTERNAL_IP} -profile=kubernetes ${instance}-csr.json | cfssljson -bare ${instance}
@@ -190,7 +192,6 @@ cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kube
   kube-scheduler-csr.json | cfssljson -bare kube-scheduler
 
 ### KubeApi key
-KUBERNETES_PUBLIC_ADDRESS=127.0.0.1
 
 cat > ${ADM_PKIDIR}/kubernetes-csr.json <<EOF
 {
@@ -212,7 +213,7 @@ cat > ${ADM_PKIDIR}/kubernetes-csr.json <<EOF
 EOF
 
 cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json \
-  -hostname=10.32.0.1,10.240.0.10,10.240.0.11,10.240.0.12,${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,kubernetes.default \
+  -hostname=${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,kubernetes.default \
   -profile=kubernetes kubernetes-csr.json | cfssljson -bare kubernetes
 
 ### Service Account key
@@ -254,7 +255,7 @@ mkdir -p ${ADM_KUBECONFIGDIR}
 ADM_TMP=${ADM_KUBECONFIGDIR}'/*'
 rm -rfv $ADM_TMP
 
-for instance in debian slave0 slave1 slave2; do
+for instance in ${HOSTNAME}; do
   kubectl config set-cluster kubernetes-the-hard-way \
     --certificate-authority=${ADM_CA}/ca.pem \
     --embed-certs=true \
@@ -371,9 +372,8 @@ EOF
 #Copying this hueta will be later
 
 ### Etcd install
-ETCD_VERSION='3.3.5'
-#wget -q --show-progress --https-only --timestamping \
-#  "https://github.com/coreos/etcd/releases/download/v${ETCD_VERSION}/etcd-v${ETCD_VERSION}-${ADM_OS}.tar.gz"
+wget -q --show-progress --https-only --timestamping \
+  "https://github.com/coreos/etcd/releases/download/v${ETCD_VERSION}/etcd-v${ETCD_VERSION}-${ADM_OS}.tar.gz"
 
 tar -xvf etcd-v${ETCD_VERSION}-${ADM_OS}.tar.gz
 mv etcd-v${ETCD_VERSION}-${ADM_OS}/etcd* /usr/local/bin/
@@ -382,7 +382,6 @@ mv etcd-v${ETCD_VERSION}-${ADM_OS}/etcd* /usr/local/bin/
 mkdir -p /etc/etcd /var/lib/etcd
 cp -rfv ${ADM_CA}/ca.pem ${ADM_PKIDIR}/kubernetes-key.pem ${ADM_PKIDIR}/kubernetes.pem /etc/etcd/
 
-ETCD_NAME='etcd'
 
 #ETCD_NAME=$(hostname -s)
 #echo "${ETCD_NAME} ${INTERNAL_IP}" >> /etc/hosts
@@ -397,7 +396,6 @@ cat <<EOF | tee /etc/systemd/system/etcd.service
 [Unit]
 Description=etcd
 Documentation=https://github.com/coreos
-
 [Service]
 ExecStart=/usr/local/bin/etcd \\
   --name ${ETCD_NAME} \\
@@ -412,13 +410,11 @@ ExecStart=/usr/local/bin/etcd \\
   --listen-client-urls https://${INTERNAL_IP}:2379,https://127.0.0.1:2379 \\
   --advertise-client-urls https://${INTERNAL_IP}:2379 \\
   --initial-cluster-token etcd-cluster-0 \\
-  --initial-cluster controller-0=https://127.0.0.1:2380 \\
   --initial-cluster-state new \\
   --data-dir=/var/lib/etcd
 Restart=on-failure
 RestartSec=5
 Type=notify
-
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -449,7 +445,6 @@ cat <<EOF | tee /etc/systemd/system/kube-apiserver.service
 [Unit]
 Description=Kubernetes API Server
 Documentation=https://github.com/kubernetes/kubernetes
-
 [Service]
 ExecStart=/usr/local/bin/kube-apiserver \\
   --advertise-address=${INTERNAL_IP} \\
@@ -483,7 +478,6 @@ ExecStart=/usr/local/bin/kube-apiserver \\
   --v=2
 Restart=on-failure
 RestartSec=5
-
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -494,7 +488,6 @@ cat <<EOF | tee /etc/systemd/system/kube-controller-manager.service
 [Unit]
 Description=Kubernetes Controller Manager
 Documentation=https://github.com/kubernetes/kubernetes
-
 [Service]
 ExecStart=/usr/local/bin/kube-controller-manager \\
   --address=0.0.0.0 \\
@@ -511,7 +504,6 @@ ExecStart=/usr/local/bin/kube-controller-manager \\
   --v=2
 Restart=on-failure
 RestartSec=5
-
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -531,14 +523,12 @@ cat <<EOF | tee /etc/systemd/system/kube-scheduler.service
 [Unit]
 Description=Kubernetes Scheduler
 Documentation=https://github.com/kubernetes/kubernetes
-
 [Service]
 ExecStart=/usr/local/bin/kube-scheduler \\
   --config=/etc/kubernetes/config/kube-scheduler.yaml \\
   --v=2
 Restart=on-failure
 RestartSec=5
-
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -555,7 +545,6 @@ cat > kubernetes.default.svc.cluster.local <<EOF
 server {
   listen      80;
   server_name kubernetes.default.svc.cluster.local;
-
   location /healthz {
      proxy_pass                    https://127.0.0.1:6443/healthz;
      proxy_ssl_trusted_certificate /var/lib/kubernetes/ca.pem;
@@ -614,7 +603,3 @@ subjects:
 EOF
 
 curl --cacert ${ADM_CA}/ca.pem https://127.0.0.1:6443/version
-
-### Network
-### OpenVSwitch
-apt-get install openvswitch-common openvswitch-switch
