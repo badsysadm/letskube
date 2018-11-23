@@ -1,16 +1,24 @@
+apt-get install -y libseccomp2 aufs-dkms
+#CONTAINERD_VERSION="1.1.2"
+#wget https://storage.googleapis.com/cri-containerd-release/cri-containerd-${CONTAINERD_VERSION}.linux-amd64.tar.gz
+#sha256sum cri-containerd-${CONTAINERD_VERSION}.linux-amd64.tar.gz
+#curl https://storage.googleapis.com/cri-containerd-release/cri-containerd-${CONTAINERD_VERSION}.linux-amd64.tar.gz.sha256
+#tar --no-overwrite-dir -C / -xzf cri-containerd-${CONTAINERD_VERSION}.linux-amd64.tar.gz
+#systemctl enable containerd.service
+#systemctl start containerd.service
+#rm -rfv cri-containerd-${CONTAINERD_VERSION}.linux-amd64.tar.gz*
+
+
 apt-get -y install socat conntrack ipset
 
 wget -q --show-progress --https-only --timestamping \
-https://storage.googleapis.com/kubernetes-release/release/v1.11.0/bin/linux/amd64/kubelet \
-https://storage.googleapis.com/kubernetes-release/release/v1.11.0/bin/linux/amd64/kube-proxy 
-#https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz
-#  https://github.com/kubernetes-incubator/cri-tools/releases/download/v1.0.0-beta.0/crictl-v1.0.0-beta.0-linux-amd64.tar.gz \
-#  https://storage.googleapis.com/kubernetes-the-hard-way/runsc \
-#  https://github.com/opencontainers/runc/releases/download/v1.0.0-rc5/runc.amd64 \
-#  https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz \
-#  https://github.com/containerd/containerd/releases/download/v1.1.2/containerd-1.1.2.linux-amd64.tar.gz \
-#  https://storage.googleapis.com/kubernetes-release/release/v1.11.2/bin/linux/amd64/kube-proxy \
-#  https://storage.googleapis.com/kubernetes-release/release/v1.11.2/bin/linux/amd64/kubelet
+  https://github.com/kubernetes-incubator/cri-tools/releases/download/v1.0.0-beta.0/crictl-v1.0.0-beta.0-linux-amd64.tar.gz \
+  https://storage.googleapis.com/kubernetes-the-hard-way/runsc \
+  https://github.com/opencontainers/runc/releases/download/v1.0.0-rc5/runc.amd64 \
+  https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz \
+  https://github.com/containerd/containerd/releases/download/v1.1.2/containerd-1.1.2.linux-amd64.tar.gz \
+  https://storage.googleapis.com/kubernetes-release/release/v1.11.2/bin/linux/amd64/kube-proxy \
+  https://storage.googleapis.com/kubernetes-release/release/v1.11.2/bin/linux/amd64/kubelet
 
 sudo mkdir -p \
   /etc/cni/net.d \
@@ -28,6 +36,33 @@ mv kubectl kube-proxy kubelet runc runsc /usr/local/bin/
 tar -xvf crictl-v1.0.0-beta.0-linux-amd64.tar.gz -C /usr/local/bin/
 tar -xvf cni-plugins-amd64-v0.6.0.tgz -C /opt/cni/bin/
 tar -xvf containerd-1.1.0.linux-amd64.tar.gz -C /
+tar --no-overwrite-dir -C / -zxvf containerd-1.1.2.linux-amd64.tar.gz
+
+cat <<EOF | tee /etc/systemd/system/containerd.service
+[Unit]
+Description=containerd container runtime
+Documentation=https://containerd.io
+After=network.target
+
+[Service]
+ExecStartPre=/sbin/modprobe overlay
+ExecStart=/bin/containerd
+Restart=always
+RestartSec=5
+Delegate=yes
+KillMode=process
+OOMScoreAdjust=-999
+LimitNOFILE=1048576
+LimitNPROC=infinity
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable containerd
+systemctl start containerd
+
 cat <<EOF | tee /etc/cni/net.d/10-bridge.conf
 {
     "cniVersion": "0.3.1",
@@ -68,13 +103,11 @@ cat <<EOF | sudo tee /etc/systemd/system/kube-proxy.service
 [Unit]
 Description=Kubernetes Kube Proxy
 Documentation=https://github.com/kubernetes/kubernetes
-
 [Service]
 ExecStart=/usr/local/bin/kube-proxy \\
   --config=/var/lib/kube-proxy/kube-proxy-config.yaml
 Restart=on-failure
 RestartSec=5
-
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -82,8 +115,8 @@ systemctl daemon-reload
 #systemctl enable containerd kubelet kube-proxy
 #systemctl restart containerd kubelet kube-proxy
 
-cp -rfv pki/debian-key.pem pki/debian.pem /var/lib/kubelet/
-cp -rfv config/debian.kubeconfig /var/lib/kubelet/kubeconfig
+cp -rfv pki/${HOSTNAME}-key.pem pki/${HOSTNAME}.pem /var/lib/kubelet/
+cp -rfv config/${HOSTNAME}.kubeconfig /var/lib/kubelet/kubeconfig
 cp -rfv pki/pki-ca/ca.pem /var/lib/kubernetes/
 
 
@@ -104,8 +137,8 @@ clusterDNS:
   - "10.32.0.10"
 podCIDR: "10.0.0.0/16"
 runtimeRequestTimeout: "15m"
-tlsCertFile: "/var/lib/kubelet/debian.pem"
-tlsPrivateKeyFile: "/var/lib/kubelet/debian-key.pem"
+tlsCertFile: "/var/lib/kubelet/${HOSTNAME}.pem"
+tlsPrivateKeyFile: "/var/lib/kubelet/${HOSTNAME}-key.pem"
 EOF
 
 
@@ -115,7 +148,6 @@ Description=Kubernetes Kubelet
 Documentation=https://github.com/kubernetes/kubernetes
 After=containerd.service
 Requires=containerd.service
-
 [Service]
 ExecStart=/usr/local/bin/kubelet \\
   --config=/var/lib/kubelet/kubelet-config.yaml \\
@@ -128,7 +160,6 @@ ExecStart=/usr/local/bin/kubelet \\
   --v=2
 Restart=on-failure
 RestartSec=5
-
 [Install]
 WantedBy=multi-user.target
 EOF
