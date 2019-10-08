@@ -4,7 +4,7 @@ VG_NAME='vg0'
 export TERM=xterm-color
 apt-get update && apt-get install -y makedev lvm2 mc apt-transport-https ca-certificates curl gnupg2 software-properties-common \
 sudo make gcc git iptraf openssl wget psmisc net-tools python python3 python-pip python3-pip bash-completion jq qemu-guest-agent \
-ethtool ssh locales linux-image-amd64
+ethtool ssh locales linux-image-amd64 tcpdump vim nano
 mount none /proc -t proc
 cd /dev
 MAKEDEV generic
