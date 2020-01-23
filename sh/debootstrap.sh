@@ -32,8 +32,7 @@ iface ${NETWORK_INTERFACE} inet dhcp
 EOF
 
 cat <<EOF> /etc/resolv.conf
-nameserver 192.168.80.254
-nameserver 192.168.80.253
+nameserver 8.8.8.8
 EOF
 cat <<EOF> /etc/hostname
 ${HOSTNAME}
@@ -54,7 +53,7 @@ deb http://security.debian.org/ stretch/updates main
 deb-src http://security.debian.org/ stretch/updates main
 EOF
 echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
-locale-get
+locale-gen
 export DEBIAN_FRONTEND=noninteractive
 apt-get install -y grub-pc
 grub-install /dev/sda
