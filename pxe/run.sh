@@ -18,7 +18,8 @@ ISODIR_WRITE=$ISODIR-rw
 # download ISO:
 # wget -nc -O $ISOFILE http://cdimage.debian.org/cdimage/wheezy_di_rc3/amd64/iso-cd/debian-wheezy-DI-rc3-amd64-netinst.iso || true
 #wget -nc -O $ISOFILE https://cdimage.debian.org/cdimage/unofficial/non-free/cd-including-firmware/current/amd64/iso-cd/firmware-9.5.0-amd64-netinst.iso || true
-wget -nc -O $ISOFILE https://cdimage.debian.org/cdimage/release/current/amd64/iso-cd/debian-9.5.0-amd64-netinst.iso || true
+#wget -nc -O $ISOFILE https://cdimage.debian.org/cdimage/release/current/amd64/iso-cd/debian-9.5.0-amd64-netinst.iso || true
+wget -nc -O $ISOFILE https://cdimage.debian.org/cdimage/release/current/amd64/iso-cd/debian-10.3.0-amd64-netinst.iso || true
 
 echo 'mounting ISO9660 filesystem...'
 # source: http://wiki.debian.org/DebianInstaller/ed/EditIso
