@@ -61,7 +61,6 @@ net.core.wmem_max = 67108864
 net.ipv4.tcp_rmem = 4096 87380 33554432
 net.ipv4.tcp_wmem = 4096 65536 33554432
 net.ipv4.tcp_congestion_control=htcp
-net.nf_conntrack_max = 44097152
 net.ipv4.tcp_slow_start_after_idle = 0
 net.core.optmem_max = 25165824
 vm.max_map_count = 262144
